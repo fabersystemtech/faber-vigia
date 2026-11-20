@@ -87,10 +87,12 @@ async function main() {
   let conProblemas = 0;
   const mensajes = [];
 
-  for (const { s, r } of resultados) {
+  const detalle = [];
+  for (const [i, { s, r }] of resultados.entries()) {
     const st = (estado.sitios[s.nombre] ||= { fallas: 0, caido: false });
     if (!r.ok) {
       conProblemas++;
+      detalle.push(`#${i + 1}: ${r.motivo}`); // solo la posición en la lista, nunca el nombre (el registro es público)
       st.fallas++;
       if (st.fallas >= 2 && !st.caido) {
         st.caido = true;
@@ -117,7 +119,7 @@ async function main() {
 
   for (const m of mensajes) await avisar(m);
   writeFileSync(ARCHIVO, JSON.stringify(estado));
-  console.log(`Revisados ${SITIOS.length}; con problemas ${conProblemas}; avisos enviados ${mensajes.length}.`);
+  console.log(`Revisados ${SITIOS.length}; con problemas ${conProblemas}; avisos enviados ${mensajes.length}.${detalle.length ? " Problemas -> " + detalle.join("; ") : ""}`);
 }
 
 main().catch((e) => {
