@@ -4,7 +4,8 @@
 // de Telegram por TELEGRAM_TOKEN. Los registros (logs) de Actions también son públicos, así que este programa
 // imprime SOLO cantidades, nunca nombres, direcciones ni respuestas.
 //
-// SITIOS: arreglo JSON  [{ "nombre": "Mi sitio", "url": "https://...", "encabezados": { "apikey": "..." } }]
+// SITIOS: arreglo JSON  [{ "nombre": "Mi sitio", "url": "https://...", "encabezados": { "apikey": "..." },
+//          "ayuda": "qué hacer si cae (sale en el aviso)", "abrir": "https://... (botón)", "sinBoton": true }]
 // Reglas: se reintenta una vez; se avisa cuando falla dos revisiones seguidas (unos 10 min) y cuando vuelve.
 // Cada lunes (8:00 Ecuador) manda un "sigo activo" con el resumen: si ese mensaje deja de llegar, el vigía se paró.
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
@@ -38,7 +39,7 @@ async function revisar(sitio) {
   return { ok: false, ms: 0, motivo };
 }
 
-async function avisar(texto) {
+async function avisar(texto, boton) {
   if (!TOKEN || !CHAT) throw new Error("falta configurar Telegram");
   let motivo = "";
   for (let intento = 0; intento < 3; intento++) {
@@ -46,7 +47,7 @@ async function avisar(texto) {
       const r = await fetch(`${API}/bot${TOKEN}/sendMessage`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chat_id: CHAT, text: texto, disable_web_page_preview: true }),
+        body: JSON.stringify({ chat_id: CHAT, text: texto, disable_web_page_preview: true, ...(boton ? { reply_markup: { inline_keyboard: [[boton]] } } : {}) }),
         signal: AbortSignal.timeout(15000),
       });
       if (r.ok) return;
@@ -97,10 +98,17 @@ async function main() {
       if (st.fallas >= 2 && !st.caido) {
         st.caido = true;
         st.desde = AHORA.toISOString();
-        mensajes.push(`🔴 ${s.nombre} NO responde (${r.motivo}). Lo sigo revisando cada 5 minutos.`);
+        const hora = enEcuador(AHORA).toISOString().slice(11, 16);
+        mensajes.push({
+          texto:
+            `🔴 ${s.nombre} NO responde (${r.motivo}). Lo sigo revisando cada 5 minutos.` +
+            (s.ayuda ? `\n\n👉 Qué hacer: ${s.ayuda}` : "") +
+            `\n\n📋 Para pedirme ayuda, copia y pega esto en Claude:\nHola Claude, el vigía avisó que "${s.nombre}" no responde (${r.motivo}) desde las ${hora} (hora de Ecuador). Revisa el sitio, su hosting y su base de datos, y dime qué hacer.`,
+          boton: s.sinBoton ? null : { text: "🌐 Abrir sitio", url: s.abrir || s.url },
+        });
       }
     } else {
-      if (st.caido) mensajes.push(`🟢 ${s.nombre} volvió a responder (estuvo caído ${duracion(st.desde, AHORA)}).`);
+      if (st.caido) mensajes.push({ texto: `🟢 ${s.nombre} volvió a responder (estuvo caído ${duracion(st.desde, AHORA)}).` });
       st.fallas = 0;
       st.caido = false;
       delete st.desde;
@@ -113,11 +121,11 @@ async function main() {
   const ec = enEcuador(AHORA);
   if (ec.getUTCDay() === 1 && ec.getUTCHours() >= 8 && estado.ultimaSemana !== semanaIso(ec)) {
     const caidos = SITIOS.filter((s) => estado.sitios[s.nombre]?.caido).map((s) => s.nombre);
-    mensajes.push(`🛡️ Vigía activo: reviso ${SITIOS.length} sitios cada 5 minutos. ${caidos.length ? `Caídos ahora: ${caidos.join(", ")}.` : "Todos responden."}`);
+    mensajes.push({ texto: `🛡️ Vigía activo: reviso ${SITIOS.length} sitios cada 5 minutos. ${caidos.length ? `Caídos ahora: ${caidos.join(", ")}.` : "Todos responden."}` });
     estado.ultimaSemana = semanaIso(ec);
   }
 
-  for (const m of mensajes) await avisar(m);
+  for (const m of mensajes) await avisar(m.texto, m.boton);
   writeFileSync(ARCHIVO, JSON.stringify(estado));
   console.log(`Revisados ${SITIOS.length}; con problemas ${conProblemas}; avisos enviados ${mensajes.length}.${detalle.length ? " Problemas -> " + detalle.join("; ") : ""}`);
 }

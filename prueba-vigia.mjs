@@ -39,7 +39,7 @@ const apiTelegram = `http://127.0.0.1:${telegram.address().port}`;
 
 const LISTA = [
   { nombre: "Sitio sano", url: `${base}/ok` },
-  { nombre: "Sitio variable", url: `${base}/variable` },
+  { nombre: "Sitio variable", url: `${base}/variable`, ayuda: "Mira el hosting y la base de datos de ese sitio." },
   { nombre: "Base con llave", url: `${base}/con-llave`, encabezados: { apikey: "llave-de-prueba" } },
 ];
 
@@ -78,8 +78,11 @@ try {
   assert.equal(avisos.length, 1);
   assert.match(avisos[0].text, /^🔴 Sitio variable NO responde/);
   assert.equal(avisos[0].chat_id, "777");
+  assert.match(avisos[0].text, /👉 Qué hacer: Mira el hosting y la base de datos de ese sitio\./);
+  assert.match(avisos[0].text, /Hola Claude, el vigía avisó que "Sitio variable" no responde \(respondió 503\) desde las 10:00/);
+  assert.deepEqual(avisos[0].reply_markup.inline_keyboard[0][0], { text: "🌐 Abrir sitio", url: `${base}/variable` });
   sinFugas(r.salida);
-  ok("dos fallas seguidas (unos 10 min): avisa que el sitio no responde");
+  ok("dos fallas seguidas (unos 10 min): avisa, dice qué hacer, trae el texto listo para pegarle a Claude y un botón para abrir el sitio");
 
   // 3) Sigue caído: no repite
   await correr();
