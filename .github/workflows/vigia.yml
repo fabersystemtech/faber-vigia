@@ -9,6 +9,10 @@ on:
         description: "Enviar un mensaje de prueba a Telegram"
         type: boolean
         default: false
+      simulacro:
+        description: "Enviar un aviso de caída de ejemplo (para ver cómo se ve)"
+        type: boolean
+        default: false
 
 # Una sola revisión a la vez; si una demora, la siguiente espera.
 concurrency:
@@ -39,4 +43,5 @@ jobs:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT: ${{ secrets.TELEGRAM_CHAT }}
           PRUEBA: ${{ inputs.prueba && '1' || '0' }}
+          SIMULACRO: ${{ inputs.simulacro && '1' || '0' }}
         run: node vigia.mjs

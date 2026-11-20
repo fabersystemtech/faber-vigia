@@ -74,6 +74,18 @@ const duracion = (desde, hasta) => {
   return min < 60 ? `${min} min` : `${Math.floor(min / 60)} h ${min % 60} min`;
 };
 
+/** Aviso de caída: qué pasó, qué hacer, texto listo para pegarle a Claude y botón para abrir el sitio. */
+function mensajeCaida(s, motivo) {
+  const hora = enEcuador(AHORA).toISOString().slice(11, 16);
+  return {
+    texto:
+      `🔴 ${s.nombre} NO responde (${motivo}). Lo sigo revisando cada 5 minutos.` +
+      (s.ayuda ? `\n\n👉 Qué hacer: ${s.ayuda}` : "") +
+      `\n\n📋 Para pedirme ayuda, copia y pega esto en Claude:\nHola Claude, el vigía avisó que "${s.nombre}" no responde (${motivo}) desde las ${hora} (hora de Ecuador). Revisa el sitio, su hosting y su base de datos, y dime qué hacer.`,
+    boton: s.sinBoton ? null : { text: "🌐 Abrir sitio", url: s.abrir || s.url },
+  };
+}
+
 async function main() {
   if (!SITIOS.length) { console.log("Sin sitios configurados."); process.exit(1); }
   const estado = leerEstado();
@@ -82,6 +94,14 @@ async function main() {
   if (process.env.PRUEBA === "1") {
     await avisar(`✅ Prueba del Vigía de Faber System: el aviso por Telegram funciona. Vigilo ${SITIOS.length} sitios.`);
     console.log("Mensaje de prueba enviado.");
+  }
+
+  if (process.env.SIMULACRO === "1") {
+    const ejemplo = SITIOS.find((x) => !x.sinBoton) || SITIOS[0];
+    const m = mensajeCaida(ejemplo, "respondió 503");
+    await avisar("🧪 SIMULACRO: así se vería un aviso real. No hay nada caído.\n\n" + m.texto, m.boton);
+    console.log("Simulacro enviado.");
+    return;
   }
 
   const resultados = await Promise.all(SITIOS.map(async (s) => ({ s, r: await revisar(s) })));
@@ -98,14 +118,7 @@ async function main() {
       if (st.fallas >= 2 && !st.caido) {
         st.caido = true;
         st.desde = AHORA.toISOString();
-        const hora = enEcuador(AHORA).toISOString().slice(11, 16);
-        mensajes.push({
-          texto:
-            `🔴 ${s.nombre} NO responde (${r.motivo}). Lo sigo revisando cada 5 minutos.` +
-            (s.ayuda ? `\n\n👉 Qué hacer: ${s.ayuda}` : "") +
-            `\n\n📋 Para pedirme ayuda, copia y pega esto en Claude:\nHola Claude, el vigía avisó que "${s.nombre}" no responde (${r.motivo}) desde las ${hora} (hora de Ecuador). Revisa el sitio, su hosting y su base de datos, y dime qué hacer.`,
-          boton: s.sinBoton ? null : { text: "🌐 Abrir sitio", url: s.abrir || s.url },
-        });
+        mensajes.push(mensajeCaida(s, r.motivo));
       }
     } else {
       if (st.caido) mensajes.push({ texto: `🟢 ${s.nombre} volvió a responder (estuvo caído ${duracion(st.desde, AHORA)}).` });
