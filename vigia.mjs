@@ -40,6 +40,7 @@ async function revisar(sitio) {
 
 async function avisar(texto) {
   if (!TOKEN || !CHAT) throw new Error("falta configurar Telegram");
+  let motivo = "";
   for (let intento = 0; intento < 3; intento++) {
     try {
       const r = await fetch(`${API}/bot${TOKEN}/sendMessage`, {
@@ -49,10 +50,14 @@ async function avisar(texto) {
         signal: AbortSignal.timeout(15000),
       });
       if (r.ok) return;
-    } catch { /* se reintenta */ }
+      // Telegram explica el motivo (por ejemplo: "chat not found"); es un texto genérico, sin datos propios.
+      const cuerpo = await r.json().catch(() => ({}));
+      motivo = " (Telegram respondió " + r.status + ": " + String(cuerpo.description || "sin detalle").replace(/d{6,}/g, "[número]").slice(0, 120) + ")";
+      if (r.status === 400 || r.status === 401 || r.status === 403) break; // no mejora con reintentos
+    } catch { motivo = " (sin conexión con Telegram)"; }
     await pausa(2000);
   }
-  throw new Error("no se pudo avisar por Telegram");
+  throw new Error("no se pudo avisar por Telegram" + motivo);
 }
 
 const leerEstado = () => { try { return existsSync(ARCHIVO) ? JSON.parse(readFileSync(ARCHIVO, "utf8")) : {}; } catch { return {}; } };
