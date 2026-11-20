@@ -1,0 +1,22 @@
+name: Mantener activo
+
+# GitHub apaga los flujos programados de un repositorio sin actividad en 60 días.
+# Este hace un commit vacío cada semana para que el vigía nunca se apague solo.
+on:
+  schedule:
+    - cron: "0 12 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  mantener:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          git config user.name "vigia"
+          git config user.email "vigia@users.noreply.github.com"
+          git commit --allow-empty -m "Mantener activo el vigía"
+          git push

@@ -1,0 +1,6 @@
+# NUNCA se sube: contienen datos propios (lista de sitios, tokens, estado).
+sitios.privado.json
+estado.json
+.env
+*.local
+prueba-tmp/
