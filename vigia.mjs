@@ -10,8 +10,8 @@
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 
 const SITIOS = (() => { try { return JSON.parse(process.env.SITIOS || "[]"); } catch { return []; } })();
-const TOKEN = process.env.TELEGRAM_TOKEN || "";
-const CHAT = process.env.TELEGRAM_CHAT || "";
+const TOKEN = (process.env.TELEGRAM_TOKEN || "").trim(); // los secretos a veces traen un salto de línea al final
+const CHAT = (process.env.TELEGRAM_CHAT || "").trim();
 const API = process.env.TELEGRAM_API || "https://api.telegram.org";
 const ARCHIVO = process.env.ESTADO_ARCHIVO || "estado.json";
 const AHORA = process.env.AHORA ? new Date(process.env.AHORA) : new Date();
